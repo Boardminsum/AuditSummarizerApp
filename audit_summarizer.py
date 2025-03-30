@@ -8,8 +8,16 @@ from io import BytesIO
 st.set_page_config(page_title="Audit Board Minutes Summarizer", layout="centered")
 st.title("📄 Audit Board Minutes Summarizer")
 
-# -------- API KEY --------
-openai.api_key = st.text_input("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", type="password")
+# -------- API KEY from Secrets (no user input needed) --------
+openai.api_key = st.secrets["openai"]["api_key"]
+
+# -------- Sidebar Instructions --------
+st.sidebar.header("Instructions")
+st.sidebar.markdown("""
+1. Upload a DOCX or PDF file with board minutes.
+2. Wait for the summary to be generated.
+3. Download the summary as a Word document.
+""")
 
 # -------- File Upload --------
 uploaded_file = st.file_uploader("📎 Upload a .docx or .pdf file with board minutes", type=["docx", "pdf"])
@@ -92,7 +100,7 @@ def generate_docx(markdown_table):
     return output
 
 # -------- Main Logic --------
-if uploaded_file and openai.api_key:
+if uploaded_file:
     with st.spinner("🔎 Summarizing..."):
         try:
             if uploaded_file.name.endswith(".docx"):
@@ -105,10 +113,8 @@ if uploaded_file and openai.api_key:
 
             summary = summarize_minutes(minutes_text)
             st.success("✅ Summary complete!")
-
             st.markdown("### 🧾 Summary Output:")
             st.markdown(summary)
-
             docx_file = generate_docx(summary)
             if docx_file:
                 st.download_button("⬇️ Download Word Summary", docx_file, file_name="audit_summary.docx")
@@ -116,3 +122,4 @@ if uploaded_file and openai.api_key:
                 st.warning("Could not generate downloadable summary.")
         except Exception as e:
             st.error(f"Something went wrong: {e}")
+
