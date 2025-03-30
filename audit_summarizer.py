@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 from docx import Document
 from PyPDF2 import PdfReader
 from io import BytesIO
@@ -8,8 +8,8 @@ from io import BytesIO
 st.set_page_config(page_title="Audit Board Minutes Summarizer", layout="centered")
 st.title("📄 Audit Board Minutes Summarizer")
 
-# -------- API KEY from Secrets (no user input needed) --------
-openai.api_key = st.secrets["openai"]["api_key"]
+# -------- API CLIENT SETUP --------
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 # -------- Sidebar Instructions --------
 st.sidebar.header("Instructions")
@@ -22,7 +22,7 @@ st.sidebar.markdown("""
 # -------- File Upload --------
 uploaded_file = st.file_uploader("📎 Upload a .docx or .pdf file with board minutes", type=["docx", "pdf"])
 
-# -------- Enhanced Prompt Builder --------
+# -------- Prompt Builder --------
 def build_prompt(text):
     return f"""
 You are a senior internal audit assistant.
@@ -61,22 +61,22 @@ def extract_text_from_pdf(file):
     reader = PdfReader(file)
     return "\n".join([page.extract_text() for page in reader.pages if page.extract_text()])
 
-# -------- AI Summary --------
+# -------- AI Summary Generator --------
 def summarize_minutes(text):
     prompt = build_prompt(text)
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3
     )
     return response.choices[0].message.content.strip()
 
-# -------- Export to DOCX --------
+# -------- DOCX Export --------
 def generate_docx(markdown_table):
     doc = Document()
     doc.add_heading("Board Minutes Summary for Audit", level=1)
 
-    # Markdown → Table
+    # Extract Markdown Table Rows
     lines = [line for line in markdown_table.split("\n") if "|" in line]
     rows = [line.split("|")[1:-1] for line in lines if "---" not in line]
 
@@ -99,7 +99,7 @@ def generate_docx(markdown_table):
     output.seek(0)
     return output
 
-# -------- Main Logic --------
+# -------- Main App Logic --------
 if uploaded_file:
     with st.spinner("🔎 Summarizing..."):
         try:
@@ -115,6 +115,7 @@ if uploaded_file:
             st.success("✅ Summary complete!")
             st.markdown("### 🧾 Summary Output:")
             st.markdown(summary)
+            
             docx_file = generate_docx(summary)
             if docx_file:
                 st.download_button("⬇️ Download Word Summary", docx_file, file_name="audit_summary.docx")
@@ -122,4 +123,5 @@ if uploaded_file:
                 st.warning("Could not generate downloadable summary.")
         except Exception as e:
             st.error(f"Something went wrong: {e}")
+
 
